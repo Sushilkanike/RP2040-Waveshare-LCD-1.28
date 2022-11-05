@@ -1,6 +1,8 @@
 from machine import Pin,I2C,SPI,PWM,ADC
 import framebuf
 import time
+import array
+import math
 
 
 
@@ -14,13 +16,15 @@ MOSI = 11
 RST = 12
 
 count = 0
+peak = 0
+Gval = [0, 0, 0]
+PI = 3.14
 
 push_button = Pin(13,Pin.IN, Pin.PULL_DOWN)
 
 BL = 25
 
 Vbat_Pin = 29
-
 
 
 class LCD_1inch28(framebuf.FrameBuffer):
@@ -46,7 +50,7 @@ class LCD_1inch28(framebuf.FrameBuffer):
         self.blue  =   0xf800
         self.white =   0xffff
         
-        self.fill(self.white)
+        self.fill(self.red)
         self.show()
 
         self.pwm = PWM(Pin(BL))
@@ -413,7 +417,6 @@ class QMI8658(object):
         return xyz
 
 
-
 if __name__=='__main__':
   
     LCD = LCD_1inch28()
@@ -426,28 +429,19 @@ if __name__=='__main__':
         xyz=qmi8658.Read_XYZ()
         LCD.fill(LCD.red)
         
-        if push_button.value():
-            count += 1
-            time.sleep(0.5)
-        
+        #if push_button.value(): #uncomment this line to use pushbutton at GPIO13 and add the indentation for the if condition
+        count += 1                
+        time.sleep(2) #replace 2 with 0.1 if push button is used
+        #count = 3   #uncomment this line to stay on a paricular page
             
-        if count == 0:
-        
+        if count == 1:
+            
+            LCD.fill(LCD.red)
             LCD.fill_rect(0,0,240,60,LCD.red)
-            LCD.text("LvlAlpha",90,25,LCD.white)
-        
+            LCD.text("lvlAlpha",90,25,LCD.white)
+            
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Health Monitor",70,57,LCD.white)
-        
-            LCD.fill_rect(0,80,120,120,0x1805)
-            LCD.text("ACC_X={:+.2f}".format(xyz[0]),20,100-3,LCD.white)
-            LCD.text("ACC_Y={:+.2f}".format(xyz[1]),20,140-3,LCD.white)
-            LCD.text("ACC_Z={:+.2f}".format(xyz[2]),20,180-3,LCD.white)
-
-            LCD.fill_rect(120,80,120,120,0xF073)
-            LCD.text("GYR_X={:+3.2f}".format(xyz[3]),125,100-3,LCD.white)
-            LCD.text("GYR_Y={:+3.2f}".format(xyz[4]),125,140-3,LCD.white)
-            LCD.text("GYR_Z={:+3.2f}".format(xyz[5]),125,180-3,LCD.white)
         
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
@@ -456,10 +450,10 @@ if __name__=='__main__':
             LCD.show()
             time.sleep(0.1)
             
-        elif count == 1:
+        elif count == 2:
             LCD.fill(LCD.red)
             LCD.fill_rect(0,0,240,60,LCD.red)
-            LCD.text("LvlAlpha",90,25,LCD.white)
+            LCD.text("lvlAlpha",90,25,LCD.white)
         
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Environment",80,57,LCD.white)
@@ -470,12 +464,52 @@ if __name__=='__main__':
             LCD.show()
             time.sleep(0.1)
             
-        elif count == 2:
+        elif count == 3:
             LCD.fill_rect(0,0,240,60,LCD.red)
-            LCD.text("LvlAlpha",90,25,LCD.white)
+            LCD.text("lvlAlpha",90,25,LCD.white)
         
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("IMU Impact Injury",60,57,LCD.white)
+            
+            LCD.fill_rect(0,80,120,120,0x1805)
+            LCD.text("GForce",35,105,LCD.red)
+            
+            for i in range(0,2):
+            
+                Accel_X = xyz[0]
+                Accel_Y = xyz[1]
+                Accel_Z = xyz[2]
+            
+                G = pow((pow(xyz[0],2) + pow(xyz[1],2) + pow(xyz[2],2)),0.5)
+                G = G/10
+                
+                Gval[i] = G
+                time.sleep(0.1)
+            
+            if Gval[1] > Gval[0] :
+                peak = Gval[1]
+            else:
+                peak = Gval[0]
+            
+            LCD.text("{:+.2f}".format(G),35,120,LCD.red)
+            LCD.text("Peak Hold",25,155,LCD.red)
+            LCD.text("{:+.2f}".format(peak),35,175,LCD.red)
+            
+            
+            
+            LCD.fill_rect(120,80,120,120,0xF073)
+            LCD.text("Eular Angles",130,105,LCD.white)
+            
+            Gyro_X = xyz[3]
+            Gyro_Y = xyz[4]
+            Gyro_Y = xyz[5]
+            
+            pitch = 180 * math.atan2(Accel_X, math.sqrt(Accel_Y*Accel_Y + Accel_Z*Accel_Z))/PI;
+            roll = 180 * math.atan2(Accel_Y, math.sqrt(Accel_X*Accel_X + Accel_Z*Accel_Z))/PI;
+            
+            LCD.text("Pitch={:+3.2f}".format(pitch),125,130,LCD.white)
+            LCD.text("Roll ={:+3.2f}".format(roll),125,150,LCD.white)
+            
             
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
@@ -484,9 +518,9 @@ if __name__=='__main__':
             LCD.show()
             time.sleep(0.1)
 
-        elif count == 3:
+        elif count == 4:
             LCD.fill_rect(0,0,240,60,LCD.red)
-            LCD.text("LvlAlpha",90,25,LCD.white)
+            LCD.text("lvlAlpha",90,25,LCD.white)
         
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Location",91,57,LCD.white)
@@ -497,6 +531,8 @@ if __name__=='__main__':
 
             LCD.show()
             time.sleep(0.1)
+            
+            count = 0
             
         else:
             count = 0
