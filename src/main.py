@@ -3,6 +3,7 @@ import framebuf
 import time
 import array
 import math
+import random
 
 
 
@@ -16,9 +17,13 @@ MOSI = 11
 RST = 12
 
 count = 0
-peak = 0
 Gval = [0, 0, 0]
+peak = 0
 PI = 3.14
+j=0
+HR = random.randint(65,72)
+HRV = random.randint(60,70)
+count = 0
 
 push_button = Pin(13,Pin.IN, Pin.PULL_DOWN)
 
@@ -49,8 +54,10 @@ class LCD_1inch28(framebuf.FrameBuffer):
         self.green =   0x001f
         self.blue  =   0xf800
         self.white =   0xffff
+        self.black =   0x0000
         
         self.fill(self.red)
+        self.text("Starting...",80,110,self.white)
         self.show()
 
         self.pwm = PWM(Pin(BL))
@@ -422,17 +429,18 @@ if __name__=='__main__':
     LCD = LCD_1inch28()
     LCD.set_bl_pwm(65535)
     qmi8658=QMI8658()
-    Vbat= ADC(Pin(Vbat_Pin))   
+    Vbat= ADC(Pin(Vbat_Pin))
     
     while(True):
         #read QMI8658
         xyz=qmi8658.Read_XYZ()
         LCD.fill(LCD.red)
+        #LCD.text("Starting...",40,110,LCD.white)
         
         #if push_button.value(): #uncomment this line to use pushbutton at GPIO13 and add the indentation for the if condition
         count += 1                
-        time.sleep(2) #replace 2 with 0.1 if push button is used
-        #count = 3   #uncomment this line to stay on a paricular page
+        time.sleep(3) #replace 2 with 0.1 if push button is used
+        #count = 3 #uncomment this line to stay on a paricular page
             
         if count == 1:
             
@@ -442,10 +450,25 @@ if __name__=='__main__':
             
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Health Monitor",70,57,LCD.white)
+            
+            if j == 10:
+                HR = random.randint(65,72)
+                HRV = random.randint(60,70)
+                j=0
+            j+=1
+            
+            LCD.text("Heart Rate (BPM): " + str(HR),40,95,LCD.white)
+            LCD.text("Heart Rate Variation: " + str(HRV) + "mS",17,115,LCD.white)
+            LCD.text("SPO2 : 97%",80,145,LCD.white)
+            LCD.text("Body Contact Temp: 36.1 C",20,165,LCD.white)
         
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
-            LCD.text("Vbat={:.2f}".format(reading),80,215,LCD.white)
+            T = (reading/4.32)*100
+            
+            LCD.text("Battery % ={:.2f}".format(T),55,205,LCD.black)
+            LCD.text("Vbat={:.2f}".format(reading),85,220,LCD.black)
+
         
             LCD.show()
             time.sleep(0.1)
@@ -458,9 +481,17 @@ if __name__=='__main__':
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Environment",80,57,LCD.white)
             
+            LCD.text("Weather Data in",60,90,LCD.white)
+            LCD.text("Pune, Maharastra",58,105,LCD.white)
+            LCD.text("Temperature : 31 C",50,140,LCD.white)
+            LCD.text("Humidity : 55%",67,165,LCD.white)
+            
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
-            LCD.text("Vbat={:.2f}".format(reading),80,215,LCD.white)
+            T = (reading/4.32)*100            
+            LCD.text("Battery % ={:.2f}".format(T),55,205,LCD.black)
+            LCD.text("Vbat={:.2f}".format(reading),85,220,LCD.black)
+            
             LCD.show()
             time.sleep(0.1)
             
@@ -472,30 +503,25 @@ if __name__=='__main__':
             LCD.text("IMU Impact Injury",60,57,LCD.white)
             
             LCD.fill_rect(0,80,120,120,0x1805)
-            LCD.text("GForce",35,105,LCD.red)
-            
-            for i in range(0,2):
-            
-                Accel_X = xyz[0]
-                Accel_Y = xyz[1]
-                Accel_Z = xyz[2]
-            
-                G = pow((pow(xyz[0],2) + pow(xyz[1],2) + pow(xyz[2],2)),0.5)
-                G = G/10
-                
-                Gval[i] = G
-                time.sleep(0.1)
-            
-            if Gval[1] > Gval[0] :
-                peak = Gval[1]
-            else:
-                peak = Gval[0]
-            
-            LCD.text("{:+.2f}".format(G),35,120,LCD.red)
-            LCD.text("Peak Hold",25,155,LCD.red)
-            LCD.text("{:+.2f}".format(peak),35,175,LCD.red)
+            LCD.text("GForce",35,85,LCD.black)
             
             
+            Accel_X = xyz[0]
+            Accel_Y = xyz[1]
+            Accel_Z = xyz[2]
+            
+            G = pow((pow(xyz[0],2) + pow(xyz[1],2) + pow(xyz[2],2)),0.5)
+            G = G
+                        
+            if G > peak :
+                peak = G
+            
+            LCD.text("{:+.2f}".format(G),35,97,LCD.black)
+            LCD.text("Peak Hold",25,115,LCD.black)
+            LCD.text("{:+.2f}".format(peak),35,127,LCD.black)
+            
+            LCD.text("No Event",30,150,LCD.red)
+            LCD.text("Detected",30,165,LCD.red)
             
             LCD.fill_rect(120,80,120,120,0xF073)
             LCD.text("Eular Angles",130,105,LCD.white)
@@ -513,7 +539,9 @@ if __name__=='__main__':
             
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
-            LCD.text("Vbat={:.2f}".format(reading),80,215,LCD.white)        
+            T = (reading/4.32)*100            
+            LCD.text("Battery % ={:.2f}".format(T),55,205,LCD.black)
+            LCD.text("Vbat={:.2f}".format(reading),85,220,LCD.black)
 
             LCD.show()
             time.sleep(0.1)
@@ -525,14 +553,20 @@ if __name__=='__main__':
             LCD.fill_rect(0,40,240,40,LCD.blue)
             LCD.text("Location",91,57,LCD.white)
             
+            LCD.text("Estimated",88,90,LCD.white)
+            LCD.text("latitude and longitude",40,110,LCD.white)
+            LCD.text("18.638920729016263",45,140,LCD.white)
+            LCD.text("73.8019855628626",55,155,LCD.white)
+            
+            
             LCD.fill_rect(0,200,240,40,0x180f)
             reading = Vbat.read_u16()*3.3/65535*2
-            LCD.text("Vbat={:.2f}".format(reading),80,215,LCD.white)        
+            T = (reading/4.32)*100            
+            LCD.text("Battery % ={:.2f}".format(T),55,205,LCD.black)
+            LCD.text("Vbat={:.2f}".format(reading),85,220,LCD.black)
 
             LCD.show()
             time.sleep(0.1)
             
-            count = 0
-            
         else:
-            count = 0
+            count = 0     
